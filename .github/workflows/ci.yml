@@ -1,0 +1,48 @@
+# Integración continua: se ejecuta en cada push y en cada pull request.
+# Si el lint o alguna prueba falla, el PR queda marcado en rojo y no se debe fusionar.
+name: CI - pruebas
+
+on:
+  push:
+    branches-ignore: [main]   # en main las pruebas las corre el workflow de CD
+  pull_request:
+    branches: [main, develop]
+  workflow_call:
+
+jobs:
+  pruebas:
+    name: Lint y pruebas (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v5
+
+      - name: Instalar Python ${{ matrix.python }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Revisar estilo con ruff
+        run: ruff check .
+
+      - name: Ejecutar pruebas con cobertura
+        run: pytest --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+
+      - name: Probar que el sitio se genera con los datos guardados
+        run: python -m monitor_precios reporte --salida sitio
+
+      - name: Guardar reporte de cobertura
+        if: matrix.python == '3.12'
+        uses: actions/upload-artifact@v5
+        with:
+          name: cobertura
+          path: coverage.xml
