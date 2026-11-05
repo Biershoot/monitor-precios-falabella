@@ -110,11 +110,17 @@ def parsear_articulo(html, url=URL_ARTICULO):
     }
 
 
-def puede_rastrear(url, user_agent="*"):
-    """Revisa el robots.txt antes de scrapear (lo mismo que hice en la EA1)."""
+def puede_rastrear(url, user_agent="*", sesion=None):
+    """Revisa el robots.txt antes de scrapear (lo mismo que hice en la EA1).
+
+    No uso rp.read() porque descarga el archivo con el User-Agent de urllib,
+    el servidor le responde 403 y robotparser entonces asume que todo está prohibido.
+    """
+    sesion = sesion or requests.Session()
+    respuesta = sesion.get(BASE + "/robots.txt", headers=HEADERS, timeout=30)
+    respuesta.raise_for_status()
     rp = robotparser.RobotFileParser()
-    rp.set_url(BASE + "/robots.txt")
-    rp.read()
+    rp.parse(respuesta.text.splitlines())
     return rp.can_fetch(user_agent, url)
 
 
