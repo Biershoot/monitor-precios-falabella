@@ -1,0 +1,59 @@
+# Despliegue continuo: cuando hay cambios en main (normalmente por un PR fusionado)
+# se vuelven a correr las pruebas y, si pasan, se publica el sitio en GitHub Pages.
+name: CD - despliegue en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  pruebas:
+    uses: ./.github/workflows/ci.yml
+
+  construir:
+    name: Construir el sitio
+    needs: pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main          # para tomar también los datos que acaba de subir el scraping
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      - name: Generar el sitio estático
+        run: python -m monitor_precios reporte --salida sitio
+
+      - name: Subir el sitio como artefacto de Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: sitio
+
+  desplegar:
+    name: Publicar en GitHub Pages
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - name: Desplegar
+        id: despliegue
+        uses: actions/deploy-pages@v4
