@@ -78,3 +78,34 @@ def test_scrapear_catalogo_se_detiene_en_pagina_vacia(html_busqueda, html_busque
     assert len(urls) == 3               # la tercera viene vacía y se detiene
     assert "Ntt=audifonos+inalambricos&page=1" in urls[0]
 
+
+class SesionFalsa:
+    """Reemplaza requests.Session para no salir a internet."""
+
+    def __init__(self, texto):
+        self.texto = texto
+
+    def get(self, url, headers=None, timeout=None):
+        sesion = self
+
+        class Respuesta:
+            text = sesion.texto
+            content = sesion.texto.encode("utf-8")
+
+            def raise_for_status(self):
+                pass
+
+        return Respuesta()
+
+
+def test_puede_rastrear_respeta_robots():
+    robots = "User-agent: *\nDisallow: /cgi-bin/\n"
+    sesion = SesionFalsa(robots)
+    url_ok = extraccion.URL_BUSQUEDA.format(busqueda="audifonos", pagina=1)
+    assert extraccion.puede_rastrear(url_ok, sesion=sesion) is True
+    url_carrito = extraccion.BASE + "/cgi-bin/prueba"
+    assert extraccion.puede_rastrear(url_carrito, sesion=sesion) is False
+
+
+def test_descargar_decodifica_utf8():
+    assert extraccion.descargar("https://x", sesion=SesionFalsa("Audífonos")) == "Audífonos"
