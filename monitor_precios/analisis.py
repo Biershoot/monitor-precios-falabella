@@ -35,8 +35,11 @@ def resumen_marcas(catalogo, top=10):
     return resumen.reset_index()
 
 
-def fila_historial(fecha, indicadores):
-    """Arma la fila que se agrega a datos/historial.csv en cada ejecución."""
+def fila_historial(fecha, indicadores, fuente="busqueda"):
+    """Arma la fila que se agrega a datos/historial.csv en cada ejecución.
+
+    fuente indica si los datos salieron de la búsqueda o de la categoría (respaldo).
+    """
     return {
         "fecha": str(fecha),
         "productos": indicadores["productos_catalogo"],
@@ -44,6 +47,7 @@ def fila_historial(fecha, indicadores):
         "descuento_promedio": indicadores["descuento_promedio_catalogo"],
         "precio_articulo": indicadores["precio_articulo"],
         "pct_mas_baratos": indicadores["pct_mas_baratos_que_articulo"],
+        "fuente": fuente,
     }
 
 

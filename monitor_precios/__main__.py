@@ -24,7 +24,8 @@ def comando_scrapear(args):
         print("El robots.txt no permite rastrear la búsqueda. Me detengo.")
         return 1
 
-    productos = extraccion.scrapear_catalogo(args.busqueda, args.paginas, args.pausa)
+    productos, fuente = extraccion.scrapear_con_respaldo(args.busqueda, args.paginas, args.pausa)
+    print(f"Fuente de los datos: {fuente}")
     catalogo = limpieza.limpiar_catalogo(productos)
     if len(catalogo) < args.minimo:
         # Si Falabella bloquea la petición o cambia la página, prefiero fallar
@@ -44,7 +45,8 @@ def comando_scrapear(args):
     indicadores = analisis.indicadores_articulo(catalogo, articulo)
     ruta_hist = DATOS / "historial.csv"
     historial = pd.read_csv(ruta_hist) if ruta_hist.exists() else None
-    historial = analisis.agregar_historial(historial, analisis.fila_historial(hoy, indicadores))
+    fila = analisis.fila_historial(hoy, indicadores, fuente)
+    historial = analisis.agregar_historial(historial, fila)
     historial.to_csv(ruta_hist, index=False)
 
     print(f"{len(catalogo)} productos guardados. Indicadores: {indicadores}")
