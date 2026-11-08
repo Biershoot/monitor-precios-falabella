@@ -15,6 +15,9 @@ from bs4 import BeautifulSoup
 
 BASE = "https://www.falabella.com.co"
 URL_BUSQUEDA = BASE + "/falabella-co/search?Ntt={busqueda}&page={pagina}"
+# Categoría "Audífonos" (sale del breadcrumb del artículo). La uso como respaldo porque el
+# 8 de noviembre de 2026 la búsqueda empezó a responder statusCode 500 sin productos.
+URL_CATEGORIA = BASE + "/falabella-co/category/cat50670/Audifonos?page={pagina}"
 URL_ARTICULO = (BASE + "/falabella-co/product/73025565/"
                 "Audifonos-earbuds-Xiaomi-Bluetooth-Redmi-Buds-6-Play-Ng")
 
@@ -133,15 +136,17 @@ def descargar(url, sesion=None, timeout=30):
     return respuesta.content.decode("utf-8", errors="replace")
 
 
-def scrapear_catalogo(busqueda="audifonos inalambricos", paginas=5, pausa=1.5, descargar_fn=None):
-    """Recorre varias páginas de la búsqueda y junta todos los productos.
+def scrapear_catalogo(busqueda="audifonos inalambricos", paginas=5, pausa=1.5, descargar_fn=None,
+                      plantilla=None):
+    """Recorre varias páginas de la búsqueda (o de la plantilla dada) y junta los productos.
 
     descargar_fn se puede reemplazar en las pruebas para no usar internet.
     """
     descargar_fn = descargar_fn or descargar
+    plantilla = plantilla or URL_BUSQUEDA
     productos = []
     for pagina in range(1, paginas + 1):
-        url = URL_BUSQUEDA.format(busqueda=busqueda.replace(" ", "+"), pagina=pagina)
+        url = plantilla.format(busqueda=busqueda.replace(" ", "+"), pagina=pagina)
         html = descargar_fn(url)
         nuevos = parsear_busqueda(html, pagina)
         if not nuevos:  # si una página viene vacía ya no hay más resultados
@@ -150,3 +155,16 @@ def scrapear_catalogo(busqueda="audifonos inalambricos", paginas=5, pausa=1.5, d
         if pausa:
             time.sleep(pausa)  # pausa para no saturar el servidor
     return productos
+
+
+def scrapear_con_respaldo(busqueda="audifonos inalambricos", paginas=5, pausa=1.5,
+                          descargar_fn=None):
+    """Intenta con la búsqueda y, si no trae productos, usa la categoría Audífonos.
+
+    Devuelve (productos, fuente) para dejar registrado de dónde salieron los datos.
+    """
+    productos = scrapear_catalogo(busqueda, paginas, pausa, descargar_fn)
+    if productos:
+        return productos, "busqueda"
+    productos = scrapear_catalogo(busqueda, paginas, pausa, descargar_fn, plantilla=URL_CATEGORIA)
+    return productos, "categoria"

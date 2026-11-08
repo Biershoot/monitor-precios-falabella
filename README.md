@@ -114,6 +114,10 @@ Más detalle en [docs/flujo-devops.md](docs/flujo-devops.md).
 - Antes de extraer se revisa el `robots.txt` de Falabella (permite todos los robots salvo el carrito y la cuenta).
 - Pausa de 1,5 a 2 segundos entre páginas y solo 5 páginas por ejecución, una vez por semana.
 - Solo se guardan datos públicos de productos (nada de datos personales).
+- Si la búsqueda «audífonos inalámbricos» no trae productos (desde el 8 de noviembre de 2026 Falabella
+  responde `statusCode: 500` en las búsquedas), el scraper usa como respaldo la categoría
+  [Audífonos](https://www.falabella.com.co/falabella-co/category/cat50670/Audifonos) y lo deja anotado
+  en la columna `fuente` de `datos/historial.csv`.
 
 ## Autor
 
