@@ -109,3 +109,28 @@ def test_puede_rastrear_respeta_robots():
 
 def test_descargar_decodifica_utf8():
     assert extraccion.descargar("https://x", sesion=SesionFalsa("Audífonos")) == "Audífonos"
+
+
+def test_respaldo_usa_categoria_si_la_busqueda_falla(html_busqueda, html_busqueda_vacia):
+    """Si la búsqueda no trae productos (statusCode 500 del 8-nov) se usa la categoría."""
+    urls = []
+
+    def falso_descargar(url):
+        urls.append(url)
+        if "/search?" in url:
+            return html_busqueda_vacia
+        return html_busqueda if "page=1" in url else html_busqueda_vacia
+
+    productos, fuente = extraccion.scrapear_con_respaldo(paginas=3, pausa=0,
+                                                         descargar_fn=falso_descargar)
+    assert fuente == "categoria"
+    assert len(productos) == 4
+    assert "/category/cat50670/" in urls[1]
+
+
+def test_respaldo_no_se_usa_si_la_busqueda_funciona(html_busqueda, html_busqueda_vacia):
+    paginas = iter([html_busqueda, html_busqueda_vacia])
+    productos, fuente = extraccion.scrapear_con_respaldo(paginas=3, pausa=0,
+                                                         descargar_fn=lambda url: next(paginas))
+    assert fuente == "busqueda"
+    assert len(productos) == 4
