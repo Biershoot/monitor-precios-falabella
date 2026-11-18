@@ -1,6 +1,6 @@
 # Imagen de la aplicación web del monitor de precios.
 # La usa Render para desplegar (runtime: docker) y la CI para probar que el contenedor arranca.
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
