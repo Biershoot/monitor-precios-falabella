@@ -1,5 +1,5 @@
 # Automatización: cada lunes se vuelve a hacer el scraping, se guardan los datos
-# nuevos en el repositorio y se vuelve a publicar el sitio con el historial actualizado.
+# nuevos en el repositorio y se vuelven a desplegar el sitio y la aplicación web.
 name: Scraping programado
 
 on:
@@ -11,6 +11,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  packages: write
 
 jobs:
   scrapear:
@@ -47,3 +48,4 @@ jobs:
   desplegar:
     needs: scrapear
     uses: ./.github/workflows/cd.yml
+    secrets: inherit      # para que el CD pueda usar RENDER_DEPLOY_HOOK_URL
