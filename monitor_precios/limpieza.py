@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-COLUMNAS = ["pagina", "posicion", "id_producto", "nombre", "marca", "vendedor",
+COLUMNAS = ["pagina", "posicion", "busqueda", "id_producto", "nombre", "marca", "vendedor",
             "precio_oferta", "precio_normal", "precio_cmr", "calificacion",
             "num_resenas", "patrocinado", "url"]
 

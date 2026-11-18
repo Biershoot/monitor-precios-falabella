@@ -26,7 +26,8 @@ def comando_scrapear(args):
         print("El robots.txt no permite rastrear la búsqueda. Me detengo.")
         return 1
 
-    productos, fuente = extraccion.scrapear_con_respaldo(args.busqueda, args.paginas, args.pausa)
+    busquedas = args.busqueda or list(extraccion.TERMINOS)
+    productos, fuente = extraccion.scrapear_con_respaldo(busquedas, args.paginas, args.pausa)
     print(f"Fuente de los datos: {fuente}")
     catalogo = limpieza.limpiar_catalogo(productos)
     if len(catalogo) < args.minimo:
@@ -80,7 +81,8 @@ def crear_parser():
     sub = parser.add_subparsers(dest="comando", required=True)
 
     p_scr = sub.add_parser("scrapear", help="Extrae los datos y actualiza el historial")
-    p_scr.add_argument("--busqueda", default="audifonos inalambricos")
+    p_scr.add_argument("--busqueda", action="append",
+                       help="Término de búsqueda; se puede repetir (por defecto, TERMINOS)")
     p_scr.add_argument("--paginas", type=int, default=5)
     p_scr.add_argument("--pausa", type=float, default=1.5)
     p_scr.add_argument("--minimo", type=int, default=100,
