@@ -1,5 +1,5 @@
 # Integración continua: se ejecuta en cada push y en cada pull request.
-# Si el lint o alguna prueba falla, el PR queda marcado en rojo y no se debe fusionar.
+# Si el lint, alguna prueba o el contenedor fallan, el PR queda en rojo y no se debe fusionar.
 name: CI - pruebas
 
 on:
@@ -9,6 +9,9 @@ on:
     branches: [main, develop]
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   pruebas:
     name: Lint y pruebas (Python ${{ matrix.python }})
@@ -16,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12"]
+        python: ["3.11", "3.12", "3.13"]
     steps:
       - name: Descargar el código
         uses: actions/checkout@v5
@@ -35,9 +38,9 @@ jobs:
         run: ruff check .
 
       - name: Ejecutar pruebas con cobertura
-        run: pytest --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+        run: pytest --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 
-      - name: Probar que el sitio se genera con los datos guardados
+      - name: Probar que el sitio estático se genera con los datos guardados
         run: python -m monitor_precios reporte --salida sitio
 
       - name: Guardar reporte de cobertura
@@ -46,3 +49,36 @@ jobs:
         with:
           name: cobertura
           path: coverage.xml
+
+  contenedor:
+    name: Construir y probar la imagen Docker
+    needs: pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construir la imagen
+        run: docker build --build-arg APP_COMMIT=${{ github.sha }} -t monitor-precios:ci .
+
+      - name: Levantar el contenedor
+        run: docker run -d --name app -p 10000:10000 monitor-precios:ci
+
+      - name: Prueba de humo contra el contenedor
+        run: |
+          # espero hasta 30 s a que gunicorn arranque
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:10000/api/salud > salud.json; then break; fi
+            sleep 1
+          done
+          cat salud.json
+          # el commit que responde debe ser exactamente el que se construyó
+          test "$(jq -r .commit salud.json)" = "${{ github.sha }}"
+          test "$(jq -r .estado salud.json)" = "ok"
+          curl -fs http://localhost:10000/ | grep -q "Redmi Buds 6 Play"
+          curl -fs "http://localhost:10000/api/catalogo?limite=5" | jq -e '.productos | length == 5'
+          # una ruta que no existe debe responder 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:10000/api/no-existe)" = "404"
+
+      - name: Logs del contenedor (si algo falló)
+        if: failure()
+        run: docker logs app
