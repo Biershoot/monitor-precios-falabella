@@ -3,4 +3,4 @@ beautifulsoup4>=4.12
 pandas>=2.0
 matplotlib>=3.8
 flask>=3.0
-gunicorn>=23.0
+gunicorn>=27.0.1
