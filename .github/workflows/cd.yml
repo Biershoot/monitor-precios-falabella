@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Desplegar
         id: despliegue
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   # ---------------------------------------------------------------- Imagen Docker
   imagen:
