@@ -12,6 +12,7 @@ permissions:
   pages: write
   id-token: write
   packages: write
+  issues: write         # para abrir un issue cuando cambia el precio
 
 jobs:
   scrapear:
@@ -42,6 +43,21 @@ jobs:
             git commit -m "datos: actualización automática del $(date +%F)"
             git push
           fi
+
+      - name: Revisar si cambió el precio del artículo
+        id: alerta
+        run: python -m monitor_precios alerta
+
+      - name: Abrir un issue de alerta
+        if: steps.alerta.outputs.cambio == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MENSAJE: ${{ steps.alerta.outputs.mensaje }}
+        run: |
+          ejecucion="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue create \
+            --title "Alerta: cambió el precio de los Redmi Buds 6 Play ($(date +%F))" \
+            --body "$MENSAJE Detectado por el scraping programado: $ejecucion"
 
   # Un push hecho con GITHUB_TOKEN no dispara otros workflows,
   # por eso llamo el despliegue directamente.
