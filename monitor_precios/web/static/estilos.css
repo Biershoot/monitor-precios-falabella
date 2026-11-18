@@ -1,0 +1,46 @@
+:root {
+  --azul: #1f5fa8;
+  --naranja: #e07b00;
+  --fondo: #f4f6f9;
+  --texto: #222;
+  --suave: #666;
+  --borde: #dde3ea;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: var(--fondo); color: var(--texto); }
+a { color: var(--azul); }
+.contenedor { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+.barra { background: var(--azul); color: #fff; }
+.barra-interior { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.barra a { color: #fff; text-decoration: none; }
+.marca { font-weight: 700; font-size: 1.1rem; }
+nav a { margin-left: 18px; opacity: .85; }
+nav a.activo, nav a:hover { opacity: 1; border-bottom: 2px solid #fff; }
+.encabezado h1 { font-size: 1.5rem; margin: 24px 0 4px; }
+.encabezado p { color: var(--suave); margin: 0 0 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.kpi, .tarjeta { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px #0002; }
+.kpi { padding: 14px; }
+.kpi span { font-size: .85rem; color: var(--suave); }
+.kpi b { display: block; font-size: 1.45rem; color: var(--azul); margin-top: 4px; }
+.rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.tarjeta { padding: 16px; margin-top: 16px; overflow-x: auto; }
+.tarjeta h2 { font-size: 1.1rem; margin-top: 0; }
+.nota { font-size: .8rem; color: var(--suave); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--borde); }
+th { background: #eef2f7; }
+tr.resaltado td { background: #fff3e0; font-weight: 600; }
+.api li { margin-bottom: 6px; }
+code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; }
+.filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.filtros label { display: flex; flex-direction: column; font-size: .85rem; color: var(--suave); }
+.filtros input, .filtros select { margin-top: 4px; padding: 6px 8px; border: 1px solid var(--borde); border-radius: 6px; }
+.filtros button { background: var(--azul); color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; cursor: pointer; }
+.paginacion { display: flex; gap: 16px; justify-content: center; margin-top: 12px; }
+.error { text-align: center; }
+.pie { text-align: center; font-size: .8rem; color: var(--suave); padding: 28px 16px; }
+@media (max-width: 600px) {
+  nav a { margin-left: 10px; }
+  .encabezado h1 { font-size: 1.2rem; }
+}

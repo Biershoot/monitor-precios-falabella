@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block contenido %}
+<section class="encabezado">
+  <h1>Xiaomi Redmi Buds 6 Play frente al catálogo de Falabella</h1>
+  <p>Última extracción: <b>{{ fecha }}</b> · fuente: {{ fuente }} ·
+     los datos se actualizan cada lunes con un workflow programado de GitHub Actions.</p>
+</section>
+
+<div class="kpis">
+  <div class="kpi"><span>Precio del artículo</span><b>{{ ind.precio_articulo | pesos }}</b></div>
+  <div class="kpi"><span>Mediana del catálogo</span><b>{{ ind.precio_mediano_catalogo | pesos }}</b></div>
+  <div class="kpi"><span>Productos más baratos que el artículo</span><b>{{ ind.pct_mas_baratos_que_articulo }} %</b></div>
+  <div class="kpi"><span>Descuento del artículo</span><b>{{ ind.descuento_articulo }} %</b></div>
+  <div class="kpi"><span>Descuento promedio del catálogo</span><b>{{ ind.descuento_promedio_catalogo }} %</b></div>
+  <div class="kpi"><span>Productos analizados</span><b>{{ ind.productos_catalogo }}</b></div>
+</div>
+
+<div class="rejilla">
+  <section class="tarjeta">
+    <h2>Evolución del precio</h2>
+    <canvas id="graficaHistorial" height="220"></canvas>
+  </section>
+  <section class="tarjeta">
+    <h2>Distribución de precios del catálogo</h2>
+    <canvas id="graficaPrecios" height="220"></canvas>
+    <p class="nota">Se muestra el 95 % de los productos. El artículo está en el rango de
+      {{ ind.precio_articulo | pesos }}.</p>
+  </section>
+</div>
+
+<section class="tarjeta">
+  <h2>Marcas con más productos</h2>
+  <table>
+    <thead><tr><th>Marca</th><th>Productos</th><th>Precio mediano</th><th>Descuento prom.</th><th>Reseñas</th></tr></thead>
+    <tbody>
+    {% for m in marcas %}
+      <tr><td><a href="{{ url_for('catalogo', marca=m.marca) }}">{{ m.marca }}</a></td>
+          <td>{{ m.productos }}</td><td>{{ m.precio_mediano | pesos }}</td>
+          <td>{{ m.descuento_prom }} %</td><td>{{ m.resenas_totales }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="tarjeta">
+  <h2>API REST</h2>
+  <p>Los mismos datos se pueden consultar en JSON:</p>
+  <ul class="api">
+    <li><a href="{{ url_for('salud') }}"><code>GET /api/salud</code></a> estado del servicio y versión desplegada</li>
+    <li><a href="{{ url_for('api_indicadores') }}"><code>GET /api/indicadores</code></a> indicadores del artículo</li>
+    <li><a href="{{ url_for('api_articulo') }}"><code>GET /api/articulo</code></a> ficha del artículo</li>
+    <li><a href="{{ url_for('api_historial') }}"><code>GET /api/historial</code></a> indicadores de cada extracción</li>
+    <li><a href="{{ url_for('api_marcas') }}"><code>GET /api/marcas?top=10</code></a> resumen por marca</li>
+    <li><a href="{{ url_for('api_catalogo', marca='XIAOMI', orden='precio_asc') }}"><code>GET /api/catalogo?marca=XIAOMI&amp;orden=precio_asc</code></a>
+      catálogo con filtros <code>marca</code>, <code>q</code>, <code>precio_min</code>, <code>precio_max</code>,
+      <code>orden</code>, <code>limite</code> y <code>desde</code></li>
+  </ul>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const historial = {{ historial | tojson }};
+  const histograma = {{ histograma | tojson }};
+  const azul = "#1f5fa8", naranja = "#e07b00";
+  const miles = v => "$" + Math.round(v / 1000) + "k";
+
+  new Chart(document.getElementById("graficaHistorial"), {
+    type: "line",
+    data: {
+      labels: historial.map(f => f.fecha),
+      datasets: [
+        {label: "Mediana del catálogo", data: historial.map(f => f.precio_mediano),
+         borderColor: azul, backgroundColor: azul, tension: .2},
+        {label: "Redmi Buds 6 Play", data: historial.map(f => f.precio_articulo),
+         borderColor: naranja, backgroundColor: naranja, tension: .2}
+      ]
+    },
+    options: {scales: {y: {beginAtZero: true, ticks: {callback: miles}}}}
+  });
+
+  new Chart(document.getElementById("graficaPrecios"), {
+    type: "bar",
+    data: {labels: histograma.rangos,
+           datasets: [{label: "Productos", data: histograma.conteos, backgroundColor: azul}]},
+    options: {plugins: {legend: {display: false}}}
+  });
+</script>
+{% endblock %}

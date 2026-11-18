@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Catálogo · Monitor de precios{% endblock %}
+{% block contenido %}
+<section class="encabezado">
+  <h1>Catálogo de audífonos</h1>
+  <p>{{ total }} productos encontrados con los filtros actuales.</p>
+</section>
+
+<form class="tarjeta filtros" method="get" action="{{ url_for('catalogo') }}">
+  <label>Buscar <input type="text" name="q" value="{{ filtros.texto or '' }}" placeholder="Ej: buds"></label>
+  <label>Marca
+    <select name="marca">
+      <option value="">Todas</option>
+      {% for m in marcas %}
+        <option value="{{ m }}" {{ 'selected' if filtros.marca and filtros.marca|upper == m }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Precio mínimo <input type="number" name="precio_min" min="0" step="1000" value="{{ filtros.precio_min or '' }}"></label>
+  <label>Precio máximo <input type="number" name="precio_max" min="0" step="1000" value="{{ filtros.precio_max or '' }}"></label>
+  <label>Ordenar por
+    <select name="orden">
+      {% for clave in ordenes %}
+        <option value="{{ clave }}" {{ 'selected' if filtros.orden == clave }}>{{ clave.replace('_', ' ') }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Filtrar</button>
+  <a class="limpiar" href="{{ url_for('catalogo') }}">Limpiar</a>
+</form>
+
+<section class="tarjeta">
+  <table>
+    <thead><tr><th>Producto</th><th>Marca</th><th>Precio</th><th>Normal</th><th>Desc.</th><th>Calif.</th><th>Reseñas</th></tr></thead>
+    <tbody>
+    {% for p in productos %}
+      <tr class="{{ 'resaltado' if p.id_producto|string == articulo.id_producto|string }}">
+        <td><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.nombre }}</a></td>
+        <td>{{ p.marca }}</td>
+        <td>{{ p.precio_oferta | pesos }}</td>
+        <td>{{ p.precio_normal | pesos }}</td>
+        <td>{{ p.descuento_pct }} %</td>
+        <td>{{ p.calificacion | round(1) }}</td>
+        <td>{{ p.num_resenas }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7">No hay productos con esos filtros.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if paginas > 1 %}
+  <nav class="paginacion">
+    {% set args = request.args.to_dict() %}
+    {% if pagina > 1 %}{% set _ = args.update({'pagina': pagina - 1}) %}<a href="{{ url_for('catalogo', **args) }}">« Anterior</a>{% endif %}
+    <span>Página {{ pagina }} de {{ paginas }}</span>
+    {% if pagina < paginas %}{% set _ = args.update({'pagina': pagina + 1}) %}<a href="{{ url_for('catalogo', **args) }}">Siguiente »</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+{% endblock %}
