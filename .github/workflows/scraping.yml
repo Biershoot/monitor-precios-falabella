@@ -1,5 +1,5 @@
 # Automatización: cada lunes se vuelve a hacer el scraping, se guardan los datos
-# nuevos en el repositorio y se vuelve a publicar el sitio con el historial actualizado.
+# nuevos en el repositorio y se vuelven a desplegar el sitio y la aplicación web.
 name: Scraping programado
 
 on:
@@ -11,6 +11,8 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  packages: write
+  issues: write         # para abrir un issue cuando cambia el precio
 
 jobs:
   scrapear:
@@ -28,7 +30,7 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: Ejecutar el scraper
-        run: python -m monitor_precios scrapear --paginas 5 --pausa 2
+        run: python -m monitor_precios scrapear --paginas 1 --pausa 2
 
       - name: Guardar los datos nuevos en el repositorio
         run: |
@@ -42,8 +44,24 @@ jobs:
             git push
           fi
 
+      - name: Revisar si cambió el precio del artículo
+        id: alerta
+        run: python -m monitor_precios alerta
+
+      - name: Abrir un issue de alerta
+        if: steps.alerta.outputs.cambio == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MENSAJE: ${{ steps.alerta.outputs.mensaje }}
+        run: |
+          ejecucion="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh issue create \
+            --title "Alerta: cambió el precio de los Redmi Buds 6 Play ($(date +%F))" \
+            --body "$MENSAJE Detectado por el scraping programado: $ejecucion"
+
   # Un push hecho con GITHUB_TOKEN no dispara otros workflows,
   # por eso llamo el despliegue directamente.
   desplegar:
     needs: scrapear
     uses: ./.github/workflows/cd.yml
+    secrets: inherit      # para que el CD pueda usar RENDER_DEPLOY_HOOK_URL

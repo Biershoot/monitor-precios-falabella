@@ -59,3 +59,24 @@ def agregar_historial(historial, fila):
     historial = historial[historial["fecha"].astype(str) != str(fila["fecha"])]
     return (pd.concat([historial, nueva], ignore_index=True)
             .sort_values("fecha").reset_index(drop=True))
+
+
+def cambio_precio(historial):
+    """Compara el precio del artículo en las dos últimas extracciones.
+
+    Devuelve un diccionario con el cambio, o None si el precio sigue igual
+    (o si todavía no hay dos fechas para comparar).
+    """
+    if historial is None or len(historial) < 2:
+        return None
+    anterior, actual = historial.iloc[-2], historial.iloc[-1]
+    if int(anterior["precio_articulo"]) == int(actual["precio_articulo"]):
+        return None
+    variacion = (actual["precio_articulo"] / anterior["precio_articulo"] - 1) * 100
+    return {
+        "fecha_anterior": str(anterior["fecha"]),
+        "precio_anterior": int(anterior["precio_articulo"]),
+        "fecha": str(actual["fecha"]),
+        "precio": int(actual["precio_articulo"]),
+        "variacion_pct": round(float(variacion), 1),
+    }

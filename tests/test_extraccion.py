@@ -65,18 +65,51 @@ def test_parsear_articulo(html_articulo):
     assert art["precio_normal"] == 99900
 
 
-def test_scrapear_catalogo_se_detiene_en_pagina_vacia(html_busqueda, html_busqueda_vacia):
+def test_scrapear_catalogo_se_detiene_en_pagina_vacia(html_busqueda, html_busqueda_pagina2,
+                                                    html_busqueda_vacia):
     urls = []
 
     def falso_descargar(url):
         urls.append(url)
-        return html_busqueda if len(urls) <= 2 else html_busqueda_vacia
+        return [html_busqueda, html_busqueda_pagina2, html_busqueda_vacia][len(urls) - 1]
 
     productos = extraccion.scrapear_catalogo("audifonos inalambricos", paginas=5, pausa=0,
                                              descargar_fn=falso_descargar)
-    assert len(productos) == 8          # 2 páginas x 4 productos
+    assert len(productos) == 6          # 4 de la página 1 + 2 de la página 2
     assert len(urls) == 3               # la tercera viene vacía y se detiene
     assert "Ntt=audifonos+inalambricos&page=1" in urls[0]
+    assert productos[0]["busqueda"] == "audifonos inalambricos"
+
+
+def test_scrapear_catalogo_para_si_la_pagina_se_repite(html_busqueda):
+    """Falabella ignora page= desde nov-2026: si la página 2 es igual a la 1, se para."""
+    urls = []
+
+    def falso_descargar(url):
+        urls.append(url)
+        return html_busqueda
+
+    productos = extraccion.scrapear_catalogo("audifonos tws", paginas=5, pausa=0,
+                                             descargar_fn=falso_descargar)
+    assert len(productos) == 4
+    assert len(urls) == 2
+
+
+def test_scrapear_varias_busquedas_junta_los_terminos(html_busqueda, html_busqueda_pagina2):
+    def falso_descargar(url):
+        return html_busqueda if "earbuds" not in url else html_busqueda_pagina2
+
+    productos = extraccion.scrapear_varias_busquedas(
+        ["audifonos inalambricos", "audifonos earbuds"], paginas=3, pausa=0,
+        descargar_fn=falso_descargar)
+    assert len(productos) == 6
+    assert {p["busqueda"] for p in productos} == {"audifonos inalambricos", "audifonos earbuds"}
+
+
+def test_scrapear_varias_busquedas_acepta_un_texto(html_busqueda):
+    productos = extraccion.scrapear_varias_busquedas("audifonos", paginas=2, pausa=0,
+                                                     descargar_fn=lambda url: html_busqueda)
+    assert len(productos) == 4
 
 
 class SesionFalsa:
@@ -121,8 +154,8 @@ def test_respaldo_usa_categoria_si_la_busqueda_falla(html_busqueda, html_busqued
             return html_busqueda_vacia
         return html_busqueda if "page=1" in url else html_busqueda_vacia
 
-    productos, fuente = extraccion.scrapear_con_respaldo(paginas=3, pausa=0,
-                                                         descargar_fn=falso_descargar)
+    productos, fuente = extraccion.scrapear_con_respaldo(["audifonos inalambricos"], paginas=3,
+                                                         pausa=0, descargar_fn=falso_descargar)
     assert fuente == "categoria"
     assert len(productos) == 4
     assert "/category/cat50670/" in urls[1]
@@ -130,7 +163,8 @@ def test_respaldo_usa_categoria_si_la_busqueda_falla(html_busqueda, html_busqued
 
 def test_respaldo_no_se_usa_si_la_busqueda_funciona(html_busqueda, html_busqueda_vacia):
     paginas = iter([html_busqueda, html_busqueda_vacia])
-    productos, fuente = extraccion.scrapear_con_respaldo(paginas=3, pausa=0,
+    productos, fuente = extraccion.scrapear_con_respaldo(["audifonos inalambricos"], paginas=3,
+                                                         pausa=0,
                                                          descargar_fn=lambda url: next(paginas))
     assert fuente == "busqueda"
     assert len(productos) == 4

@@ -1,6 +1,9 @@
 # Despliegue continuo: cuando hay cambios en main (normalmente por un PR fusionado)
-# se vuelven a correr las pruebas y, si pasan, se publica el sitio en GitHub Pages.
-name: CD - despliegue en GitHub Pages
+# se vuelven a correr las pruebas y, si pasan:
+#   1. se publica el reporte estático en GitHub Pages (lo que ya había en la Evidencia 2)
+#   2. se publica la imagen Docker en GitHub Container Registry (ghcr.io)
+#   3. se despliega la aplicación web en Render y se verifica que quedó funcionando
+name: CD - despliegue
 
 on:
   push:
@@ -12,17 +15,19 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  packages: write
 
 concurrency:
-  group: pages
+  group: despliegue
   cancel-in-progress: false
 
 jobs:
   pruebas:
     uses: ./.github/workflows/ci.yml
 
-  construir:
-    name: Construir el sitio
+  # ---------------------------------------------------------------- GitHub Pages
+  construir-sitio:
+    name: Construir el sitio estático
     needs: pruebas
     runs-on: ubuntu-latest
     steps:
@@ -46,9 +51,9 @@ jobs:
         with:
           path: sitio
 
-  desplegar:
+  pages:
     name: Publicar en GitHub Pages
-    needs: construir
+    needs: construir-sitio
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -57,3 +62,96 @@ jobs:
       - name: Desplegar
         id: despliegue
         uses: actions/deploy-pages@v4
+
+  # ---------------------------------------------------------------- Imagen Docker
+  imagen:
+    name: Publicar imagen en ghcr.io
+    needs: pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Calcular nombre y etiquetas
+        id: meta
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # ghcr.io exige el nombre de la imagen en minúsculas
+          echo "imagen=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Iniciar sesión en GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Construir y subir la imagen
+        run: |
+          docker build --build-arg APP_COMMIT=${{ steps.meta.outputs.sha }} \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            -t ${{ steps.meta.outputs.imagen }}:${{ steps.meta.outputs.sha }} \
+            -t ${{ steps.meta.outputs.imagen }}:latest .
+          docker push --all-tags ${{ steps.meta.outputs.imagen }}
+
+  # ---------------------------------------------------------------- Render
+  render:
+    name: Desplegar en Render
+    needs: pruebas
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+      url: ${{ vars.RENDER_URL }}
+    env:
+      DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      RENDER_URL: ${{ vars.RENDER_URL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Commit que se va a desplegar
+        id: version
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Revisar la configuración
+        run: |
+          if [ -z "$DEPLOY_HOOK" ] || [ -z "$RENDER_URL" ]; then
+            echo "::error::Faltan el secret RENDER_DEPLOY_HOOK_URL o la variable RENDER_URL (ver docs/despliegue-render.md)"
+            exit 1
+          fi
+
+      - name: Disparar el Deploy Hook de Render
+        run: |
+          # ref= le dice a Render qué commit exacto debe construir
+          codigo=$(curl -s -o respuesta.json -w '%{http_code}' -X POST "${DEPLOY_HOOK}&ref=${{ steps.version.outputs.sha }}")
+          echo "Render respondió HTTP $codigo"
+          cat respuesta.json || true
+          # 200 = despliegue iniciado, 202 = ya había uno en curso (queda en cola)
+          [ "$codigo" = "200" ] || [ "$codigo" = "202" ]
+
+      - name: Esperar a que la nueva versión responda
+        run: |
+          # Render construye la imagen y luego cambia el tráfico; en el plan gratis puede tardar
+          # varios minutos. Reviso /api/salud cada 20 s hasta ver el commit nuevo (máx. 15 min).
+          esperado=${{ steps.version.outputs.sha }}
+          for i in $(seq 1 45); do
+            actual=$(curl -fs --max-time 60 "$RENDER_URL/api/salud" | jq -r .commit || echo "sin respuesta")
+            echo "Intento $i: commit en Render = $actual"
+            if [ "$actual" = "$esperado" ]; then exit 0; fi
+            sleep 20
+          done
+          echo "::error::Render no mostró el commit $esperado después de 15 minutos"
+          exit 1
+
+      - name: Pruebas de humo en producción
+        run: |
+          curl -fs "$RENDER_URL/" | grep -q "Redmi Buds 6 Play"
+          curl -fs "$RENDER_URL/catalogo?marca=XIAOMI" | grep -q "Catálogo de audífonos"
+          curl -fs "$RENDER_URL/api/indicadores" | jq -e '.productos_catalogo > 100'
+          curl -fs "$RENDER_URL/api/salud" | tee salud.json | jq .
+          {
+            echo "### Despliegue en Render"
+            echo ""
+            echo "- URL: $RENDER_URL"
+            echo "- Commit: ${{ steps.version.outputs.sha }}"
+            echo "- Versión: $(jq -r .version salud.json)"
+            echo "- Última extracción de datos: $(jq -r .ultima_extraccion salud.json)"
+          } >> "$GITHUB_STEP_SUMMARY"

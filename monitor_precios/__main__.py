@@ -3,10 +3,13 @@
 Comandos:
   scrapear   descarga el catálogo y la ficha del artículo y actualiza datos/
   reporte    genera el sitio estático en sitio/ a partir de los datos guardados
+  alerta     avisa si el precio del artículo cambió entre las dos últimas extracciones
+  servidor   levanta la aplicación web en local (en producción se usa gunicorn)
 """
 
 import argparse
 import json
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -24,7 +27,8 @@ def comando_scrapear(args):
         print("El robots.txt no permite rastrear la búsqueda. Me detengo.")
         return 1
 
-    productos, fuente = extraccion.scrapear_con_respaldo(args.busqueda, args.paginas, args.pausa)
+    busquedas = args.busqueda or list(extraccion.TERMINOS)
+    productos, fuente = extraccion.scrapear_con_respaldo(busquedas, args.paginas, args.pausa)
     print(f"Fuente de los datos: {fuente}")
     catalogo = limpieza.limpiar_catalogo(productos)
     if len(catalogo) < args.minimo:
@@ -64,13 +68,43 @@ def comando_reporte(args):
     return 0
 
 
+def comando_alerta(args):
+    """Escribe el resultado en GITHUB_OUTPUT para que el workflow decida si abre un issue."""
+    historial = pd.read_csv(DATOS / "historial.csv")
+    cambio = analisis.cambio_precio(historial)
+    if cambio is None:
+        mensaje = "El precio del artículo no cambió."
+    else:
+        sentido = "bajó" if cambio["variacion_pct"] < 0 else "subió"
+        mensaje = (f"El precio de los Redmi Buds 6 Play {sentido} de "
+                   f"{reporte.pesos(cambio['precio_anterior'])} ({cambio['fecha_anterior']}) a "
+                   f"{reporte.pesos(cambio['precio'])} ({cambio['fecha']}), "
+                   f"una variación de {cambio['variacion_pct']} %.")
+    print(mensaje)
+    salida = os.environ.get("GITHUB_OUTPUT")
+    if salida:
+        with open(salida, "a", encoding="utf-8") as archivo:
+            archivo.write(f"cambio={'true' if cambio else 'false'}\n")
+            archivo.write(f"mensaje={mensaje}\n")
+    return 0
+
+
+def comando_servidor(args):
+    from monitor_precios.web import create_app  # import aquí para no cargar Flask en scrapear
+
+    app = create_app({"DATOS_DIR": args.datos})
+    app.run(host=args.host, port=args.puerto, debug=args.debug)
+    return 0
+
+
 def crear_parser():
     parser = argparse.ArgumentParser(prog="monitor_precios",
                                      description="Monitor de precios de audífonos en Falabella")
     sub = parser.add_subparsers(dest="comando", required=True)
 
     p_scr = sub.add_parser("scrapear", help="Extrae los datos y actualiza el historial")
-    p_scr.add_argument("--busqueda", default="audifonos inalambricos")
+    p_scr.add_argument("--busqueda", action="append",
+                       help="Término de búsqueda; se puede repetir (por defecto, TERMINOS)")
     p_scr.add_argument("--paginas", type=int, default=5)
     p_scr.add_argument("--pausa", type=float, default=1.5)
     p_scr.add_argument("--minimo", type=int, default=100,
@@ -81,6 +115,16 @@ def crear_parser():
     p_rep = sub.add_parser("reporte", help="Genera el sitio estático")
     p_rep.add_argument("--salida", default="sitio")
     p_rep.set_defaults(func=comando_reporte)
+
+    p_ale = sub.add_parser("alerta", help="Avisa si cambió el precio del artículo")
+    p_ale.set_defaults(func=comando_alerta)
+
+    p_srv = sub.add_parser("servidor", help="Levanta la aplicación web en local")
+    p_srv.add_argument("--host", default="127.0.0.1")
+    p_srv.add_argument("--puerto", type=int, default=int(os.environ.get("PORT", 5000)))
+    p_srv.add_argument("--datos", default="datos")
+    p_srv.add_argument("--debug", action="store_true")
+    p_srv.set_defaults(func=comando_servidor)
     return parser
 
 

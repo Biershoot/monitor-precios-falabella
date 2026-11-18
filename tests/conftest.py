@@ -47,6 +47,17 @@ def html_busqueda(productos_busqueda):
 
 
 @pytest.fixture
+def html_busqueda_pagina2():
+    """Otra página con dos productos distintos a los de html_busqueda."""
+    productos = [
+        producto("5", "Audífonos Xiaomi Redmi Buds 6", "XIAOMI", 89900, 129900, rating="4.6",
+                 reviews="210"),
+        producto("6", "Audífonos Samsung Galaxy Buds FE", "SAMSUNG", 299900, 449900),
+    ]
+    return pagina_html({"props": {"pageProps": {"results": productos}}})
+
+
+@pytest.fixture
 def html_busqueda_vacia():
     return pagina_html({"props": {"pageProps": {"results": []}}})
 
