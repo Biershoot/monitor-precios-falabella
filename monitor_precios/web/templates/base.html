@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Monitor de precios Falabella{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+</head>
+<body>
+<header class="barra">
+  <div class="contenedor barra-interior">
+    <a class="marca" href="{{ url_for('tablero') }}">Monitor de precios</a>
+    <nav>
+      <a href="{{ url_for('tablero') }}" class="{{ 'activo' if request.endpoint == 'tablero' }}">Tablero</a>
+      <a href="{{ url_for('catalogo') }}" class="{{ 'activo' if request.endpoint == 'catalogo' }}">Catálogo</a>
+      <a href="{{ url_for('salud') }}">API</a>
+    </nav>
+  </div>
+</header>
+<main class="contenedor">
+  {% block contenido %}{% endblock %}
+</main>
+<footer class="contenedor pie">
+  Proyecto académico · Alejandro Arango Calderón · IU Digital de Antioquia ·
+  v{{ version }} ({{ commit }}) · entorno {{ entorno }} ·
+  desplegado con GitHub Actions + Render
+</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

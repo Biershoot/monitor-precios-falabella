@@ -3,10 +3,12 @@
 Comandos:
   scrapear   descarga el catálogo y la ficha del artículo y actualiza datos/
   reporte    genera el sitio estático en sitio/ a partir de los datos guardados
+  servidor   levanta la aplicación web en local (en producción se usa gunicorn)
 """
 
 import argparse
 import json
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -65,6 +67,14 @@ def comando_reporte(args):
     return 0
 
 
+def comando_servidor(args):
+    from monitor_precios.web import create_app  # import aquí para no cargar Flask en scrapear
+
+    app = create_app({"DATOS_DIR": args.datos})
+    app.run(host=args.host, port=args.puerto, debug=args.debug)
+    return 0
+
+
 def crear_parser():
     parser = argparse.ArgumentParser(prog="monitor_precios",
                                      description="Monitor de precios de audífonos en Falabella")
@@ -83,6 +93,13 @@ def crear_parser():
     p_rep = sub.add_parser("reporte", help="Genera el sitio estático")
     p_rep.add_argument("--salida", default="sitio")
     p_rep.set_defaults(func=comando_reporte)
+
+    p_srv = sub.add_parser("servidor", help="Levanta la aplicación web en local")
+    p_srv.add_argument("--host", default="127.0.0.1")
+    p_srv.add_argument("--puerto", type=int, default=int(os.environ.get("PORT", 5000)))
+    p_srv.add_argument("--datos", default="datos")
+    p_srv.add_argument("--debug", action="store_true")
+    p_srv.set_defaults(func=comando_servidor)
     return parser
 
 
