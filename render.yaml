@@ -1,0 +1,25 @@
+# Blueprint de Render (infraestructura como código).
+# En Render: New > Blueprint > seleccionar este repositorio. Render crea el servicio con esta configuración.
+services:
+  - type: web
+    name: monitor-precios-falabella
+    runtime: docker            # construye la imagen con el Dockerfile del repositorio
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/salud
+    # No despliega solo con cada commit: el despliegue lo dispara GitHub Actions (cd.yml)
+    # con el Deploy Hook, y solo después de que pasan las pruebas.
+    autoDeployTrigger: "off"
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATOS_DIR
+        value: /app/datos
+      - key: LIMITE_MAXIMO
+        value: "500"
+      - key: POR_PAGINA
+        value: "50"
+      - key: WEB_CONCURRENCY
+        value: "2"
