@@ -21,6 +21,16 @@ URL_CATEGORIA = BASE + "/falabella-co/category/cat50670/Audifonos?page={pagina}"
 URL_ARTICULO = (BASE + "/falabella-co/product/73025565/"
                 "Audifonos-earbuds-Xiaomi-Bluetooth-Redmi-Buds-6-Play-Ng")
 
+# Términos de búsqueda que forman el catálogo. No incluyo marcas (por ejemplo "xiaomi")
+# para no inflar artificialmente la marca del artículo que estoy comparando.
+TERMINOS = (
+    "audifonos inalambricos",
+    "audifonos earbuds",
+    "audifonos tws",
+    "audifonos deportivos",
+    "audifonos diadema bluetooth",
+)
+
 HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                    "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"),
@@ -145,26 +155,49 @@ def scrapear_catalogo(busqueda="audifonos inalambricos", paginas=5, pausa=1.5, d
     descargar_fn = descargar_fn or descargar
     plantilla = plantilla or URL_BUSQUEDA
     productos = []
+    vistos = set()
     for pagina in range(1, paginas + 1):
         url = plantilla.format(busqueda=busqueda.replace(" ", "+"), pagina=pagina)
         html = descargar_fn(url)
         nuevos = parsear_busqueda(html, pagina)
-        if not nuevos:  # si una página viene vacía ya no hay más resultados
+        # Desde mediados de noviembre de 2026 Falabella ignora el parámetro page y devuelve
+        # siempre la primera página. Si una página no trae ningún producto nuevo, paro ahí
+        # para no hacer peticiones de más.
+        ids = {p["id_producto"] for p in nuevos}
+        if not ids - vistos:
             break
+        vistos |= ids
+        for p in nuevos:
+            p["busqueda"] = busqueda
         productos.extend(nuevos)
         if pausa:
             time.sleep(pausa)  # pausa para no saturar el servidor
     return productos
 
 
-def scrapear_con_respaldo(busqueda="audifonos inalambricos", paginas=5, pausa=1.5,
-                          descargar_fn=None):
-    """Intenta con la búsqueda y, si no trae productos, usa la categoría Audífonos.
+def scrapear_varias_busquedas(busquedas=TERMINOS, paginas=5, pausa=1.5, descargar_fn=None):
+    """Junta los productos de varios términos de búsqueda relacionados.
+
+    Como ya no se puede pasar de página, uso varios términos para armar un catálogo
+    de un tamaño parecido al de la Evidencia 1 (unos 250 productos). Los repetidos
+    se quitan después en limpieza.limpiar_catalogo().
+    """
+    if isinstance(busquedas, str):
+        busquedas = [busquedas]
+    productos = []
+    for termino in busquedas:
+        productos.extend(scrapear_catalogo(termino, paginas, pausa, descargar_fn))
+    return productos
+
+
+def scrapear_con_respaldo(busquedas=TERMINOS, paginas=5, pausa=1.5, descargar_fn=None):
+    """Intenta con las búsquedas y, si no traen productos, usa la categoría Audífonos.
 
     Devuelve (productos, fuente) para dejar registrado de dónde salieron los datos.
     """
-    productos = scrapear_catalogo(busqueda, paginas, pausa, descargar_fn)
+    productos = scrapear_varias_busquedas(busquedas, paginas, pausa, descargar_fn)
     if productos:
         return productos, "busqueda"
-    productos = scrapear_catalogo(busqueda, paginas, pausa, descargar_fn, plantilla=URL_CATEGORIA)
+    productos = scrapear_catalogo("categoria", paginas, pausa, descargar_fn,
+                                  plantilla=URL_CATEGORIA)
     return productos, "categoria"
