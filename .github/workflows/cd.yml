@@ -31,7 +31,7 @@ jobs:
     needs: pruebas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main          # para tomar también los datos que acaba de subir el scraping
 
@@ -69,7 +69,7 @@ jobs:
     needs: pruebas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
 
@@ -103,7 +103,7 @@ jobs:
       DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
       RENDER_URL: ${{ vars.RENDER_URL }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
 
