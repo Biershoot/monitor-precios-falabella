@@ -3,6 +3,7 @@
 Comandos:
   scrapear   descarga el catálogo y la ficha del artículo y actualiza datos/
   reporte    genera el sitio estático en sitio/ a partir de los datos guardados
+  alerta     avisa si el precio del artículo cambió entre las dos últimas extracciones
   servidor   levanta la aplicación web en local (en producción se usa gunicorn)
 """
 
@@ -67,6 +68,27 @@ def comando_reporte(args):
     return 0
 
 
+def comando_alerta(args):
+    """Escribe el resultado en GITHUB_OUTPUT para que el workflow decida si abre un issue."""
+    historial = pd.read_csv(DATOS / "historial.csv")
+    cambio = analisis.cambio_precio(historial)
+    if cambio is None:
+        mensaje = "El precio del artículo no cambió."
+    else:
+        sentido = "bajó" if cambio["variacion_pct"] < 0 else "subió"
+        mensaje = (f"El precio de los Redmi Buds 6 Play {sentido} de "
+                   f"{reporte.pesos(cambio['precio_anterior'])} ({cambio['fecha_anterior']}) a "
+                   f"{reporte.pesos(cambio['precio'])} ({cambio['fecha']}), "
+                   f"una variación de {cambio['variacion_pct']} %.")
+    print(mensaje)
+    salida = os.environ.get("GITHUB_OUTPUT")
+    if salida:
+        with open(salida, "a", encoding="utf-8") as archivo:
+            archivo.write(f"cambio={'true' if cambio else 'false'}\n")
+            archivo.write(f"mensaje={mensaje}\n")
+    return 0
+
+
 def comando_servidor(args):
     from monitor_precios.web import create_app  # import aquí para no cargar Flask en scrapear
 
@@ -93,6 +115,9 @@ def crear_parser():
     p_rep = sub.add_parser("reporte", help="Genera el sitio estático")
     p_rep.add_argument("--salida", default="sitio")
     p_rep.set_defaults(func=comando_reporte)
+
+    p_ale = sub.add_parser("alerta", help="Avisa si cambió el precio del artículo")
+    p_ale.set_defaults(func=comando_alerta)
 
     p_srv = sub.add_parser("servidor", help="Levanta la aplicación web en local")
     p_srv.add_argument("--host", default="127.0.0.1")
