@@ -47,7 +47,7 @@ jobs:
         run: python -m monitor_precios reporte --salida sitio
 
       - name: Subir el sitio como artefacto de Pages
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: sitio
 
