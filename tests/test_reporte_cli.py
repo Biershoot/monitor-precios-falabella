@@ -27,16 +27,16 @@ def test_generar_sitio(tmp_path, html_busqueda, articulo):
         assert (tmp_path / "sitio" / archivo).exists()
 
 
-def test_cli_scrapear_y_reporte(tmp_path, monkeypatch, html_busqueda, html_busqueda_vacia,
+def test_cli_scrapear_y_reporte(tmp_path, monkeypatch, html_busqueda,
                                 html_articulo):
     """Prueba el flujo completo del comando sin conectarse a internet."""
     monkeypatch.chdir(tmp_path)
-    paginas = iter([html_busqueda, html_busqueda_vacia])
     monkeypatch.setattr(extraccion, "puede_rastrear", lambda url: True)
     monkeypatch.setattr(extraccion, "descargar",
-                        lambda url: html_articulo if "product" in url else next(paginas))
+                        lambda url: html_articulo if "product" in url else html_busqueda)
 
-    codigo = cli.main(["scrapear", "--pausa", "0", "--minimo", "3", "--fecha", "2026-11-04"])
+    codigo = cli.main(["scrapear", "--pausa", "0", "--minimo", "3", "--fecha", "2026-11-04",
+                       "--busqueda", "audifonos inalambricos", "--busqueda", "audifonos tws"])
     assert codigo == 0
     assert (tmp_path / "datos" / "catalogos" / "catalogo_2026-11-04.csv").exists()
     hist = pd.read_csv(tmp_path / "datos" / "historial.csv")
